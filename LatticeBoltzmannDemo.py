@@ -132,12 +132,16 @@ class LatticeBoltzmannSimulator:
             omu215 + 3 * (-self.ux - self.uy) + 4.5 * (u2 + 2 * uxuy)
         )
         # Force steady rightward flow at ends (no need to set 0, N, and S components):
-        self.nE[:, 0] = self.one9th * (1 + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nW[:, 0] = self.one9th * (1 - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nNE[:, 0] = self.one36th * (1 + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nSE[:, 0] = self.one36th * (1 + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nNW[:, 0] = self.one36th * (1 - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nSW[:, 0] = self.one36th * (1 - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        def set_inlet_velocity(arr, fraction, direction_factor, u0):
+            arr[:, 0] = fraction * (1 + direction_factor * u0 + 4.5 * u0**2 - 1.5 * u0**2)
+            
+        set_inlet_velocity(self.nE, self.one9th, 3, self.u0)
+        set_inlet_velocity(self.nW, self.one9th, -3, self.u0)
+        set_inlet_velocity(self.nNE, self.one36th, 3, self.u0)
+        set_inlet_velocity(self.nSE, self.one36th, 3, self.u0)
+        set_inlet_velocity(self.nNW, self.one36th, -3, self.u0)
+        set_inlet_velocity(self.nSW, self.one36th, -3, self.u0)
+
 
     # Compute curl of the macroscopic velocity field:
     def curl(self, ux, uy):
