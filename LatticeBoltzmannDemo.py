@@ -33,137 +33,137 @@ import matplotlib
 
 matplotlib.use("QtAgg")
 import matplotlib.animation
-import matplotlib.pyplot
+import matplotlib.pyplot as plt
 import numpy as np
 
 
-# Define constants:
-height = 80  # lattice dimensions
-width = 200
-viscosity = 0.02  # fluid viscosity
-omega = 1 / (3 * viscosity + 0.5)  # "relaxation" parameter
-u0 = 0.1  # initial and in-flow speed
-four9ths = 4.0 / 9.0  # abbreviations for lattice-Boltzmann weight factors
-one9th = 1.0 / 9.0
-one36th = 1.0 / 36.0
-performanceData = False  # set to True if performance data is desired
+class LatticeBoltzmannSimulator:
+    def __init__(self):
+        # Define constants:
+        self.height = 80  # lattice dimensions
+        self.width = 200
+        self.viscosity = 0.02  # fluid viscosity
+        self.omega = 1 / (3 * self.viscosity + 0.5)  # "relaxation" parameter
+        self.u0 = 0.1  # initial and in-flow speed
+        self.four9ths = 4.0 / 9.0  # abbreviations for lattice-Boltzmann weight factors
+        self.one9th = 1.0 / 9.0
+        self.one36th = 1.0 / 36.0
+        self.performanceData = False  # set to True if performance data is desired
+        
+        # Initialize all the arrays to steady rightward flow:
+        self.n0 = self.four9ths * (
+            np.ones((self.height, self.width)) - 1.5 * self.u0**2
+        )  # particle densities along 9 directions
+        self.nN = self.one9th * (np.ones((self.height, self.width)) - 1.5 * self.u0**2)
+        self.nS = self.one9th * (np.ones((self.height, self.width)) - 1.5 * self.u0**2)
+        self.nE = self.one9th * (np.ones((self.height, self.width)) + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nW = self.one9th * (np.ones((self.height, self.width)) - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nNE = self.one36th * (np.ones((self.height, self.width)) + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nSE = self.one36th * (np.ones((self.height, self.width)) + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nNW = self.one36th * (np.ones((self.height, self.width)) - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nSW = self.one36th * (np.ones((self.height, self.width)) - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.rho = self.n0 + self.nN + self.nS + self.nE + self.nW + self.nNE + self.nSE + self.nNW + self.nSW  # macroscopic density
+        self.ux = (self.nE + self.nNE + self.nSE - self.nW - self.nNW - self.nSW) / self.rho  # macroscopic x velocity
+        self.uy = (self.nN + self.nNE + self.nNW - self.nS - self.nSE - self.nSW) / self.rho  # macroscopic y velocity
 
-# Initialize all the arrays to steady rightward flow:
-n0 = four9ths * (
-    np.ones((height, width)) - 1.5 * u0**2
-)  # particle densities along 9 directions
-nN = one9th * (np.ones((height, width)) - 1.5 * u0**2)
-nS = one9th * (np.ones((height, width)) - 1.5 * u0**2)
-nE = one9th * (np.ones((height, width)) + 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-nW = one9th * (np.ones((height, width)) - 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-nNE = one36th * (np.ones((height, width)) + 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-nSE = one36th * (np.ones((height, width)) + 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-nNW = one36th * (np.ones((height, width)) - 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-nSW = one36th * (np.ones((height, width)) - 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-rho = n0 + nN + nS + nE + nW + nNE + nSE + nNW + nSW  # macroscopic density
-ux = (nE + nNE + nSE - nW - nNW - nSW) / rho  # macroscopic x velocity
-uy = (nN + nNE + nNW - nS - nSE - nSW) / rho  # macroscopic y velocity
+        # Initialize barriers:
+        self.barrier = np.zeros((self.height, self.width), bool)  # True wherever there's a barrier
+        self.barrier[(self.height // 2) - 8 : (self.height // 2) + 8, self.height // 2] = (
+            True  # simple linear barrier
+        )
+        self.barrierN = np.roll(self.barrier, 1, axis=0)  # sites just north of barriers
+        self.barrierS = np.roll(self.barrier, -1, axis=0)  # sites just south of barriers
+        self.barrierE = np.roll(self.barrier, 1, axis=1)  # etc.
+        self.barrierW = np.roll(self.barrier, -1, axis=1)
+        self.barrierNE = np.roll(self.barrierN, 1, axis=1)
+        self.barrierNW = np.roll(self.barrierN, -1, axis=1)
+        self.barrierSE = np.roll(self.barrierS, 1, axis=1)
+        self.barrierSW = np.roll(self.barrierS, -1, axis=1)
+    
+    # Move all particles by one step along their directions of motion (pbc):
+    def stream(self):
+        self.nN = np.roll(self.nN, 1, axis=0)  # axis 0 is north-south; + direction is north
+        self.nNE = np.roll(self.nNE, 1, axis=0)
+        self.nNW = np.roll(self.nNW, 1, axis=0)
+        self.nS = np.roll(self.nS, -1, axis=0)
+        self.nSE = np.roll(self.nSE, -1, axis=0)
+        self.nSW = np.roll(self.nSW, -1, axis=0)
+        self.nE = np.roll(self.nE, 1, axis=1)  # axis 1 is east-west; + direction is east
+        self.nNE = np.roll(self.nNE, 1, axis=1)
+        self.nSE = np.roll(self.nSE, 1, axis=1)
+        self.nW = np.roll(self.nW, -1, axis=1)
+        self.nNW = np.roll(self.nNW, -1, axis=1)
+        self.nSW = np.roll(self.nSW, -1, axis=1)
+        # Use tricky boolean arrays to handle barrier collisions (bounce-back):
+        self.nN[self.barrierN] = self.nS[self.barrier]
+        self.nS[self.barrierS] = self.nN[self.barrier]
+        self.nE[self.barrierE] = self.nW[self.barrier]
+        self.nW[self.barrierW] = self.nE[self.barrier]
+        self.nNE[self.barrierNE] = self.nSW[self.barrier]
+        self.nNW[self.barrierNW] = self.nSE[self.barrier]
+        self.nSE[self.barrierSE] = self.nNW[self.barrier]
+        self.nSW[self.barrierSW] = self.nNE[self.barrier]
 
-# Initialize barriers:
-barrier = np.zeros((height, width), bool)  # True wherever there's a barrier
-barrier[(height // 2) - 8 : (height // 2) + 8, height // 2] = (
-    True  # simple linear barrier
-)
-barrierN = np.roll(barrier, 1, axis=0)  # sites just north of barriers
-barrierS = np.roll(barrier, -1, axis=0)  # sites just south of barriers
-barrierE = np.roll(barrier, 1, axis=1)  # etc.
-barrierW = np.roll(barrier, -1, axis=1)
-barrierNE = np.roll(barrierN, 1, axis=1)
-barrierNW = np.roll(barrierN, -1, axis=1)
-barrierSE = np.roll(barrierS, 1, axis=1)
-barrierSW = np.roll(barrierS, -1, axis=1)
+    # Collide particles within each cell to redistribute velocities (could be optimized a little more):
+    def collide(self):
+        self.rho = self.n0 + self.nN + self.nS + self.nE + self.nW + self.nNE + self.nSE + self.nNW + self.nSW
+        self.ux = (self.nE + self.nNE + self.nSE - self.nW - self.nNW - self.nSW) / self.rho
+        self.uy = (self.nN + self.nNE + self.nNW - self.nS - self.nSE - self.nSW) / self.rho
+        ux2 = self.ux * self.ux  # pre-compute terms used repeatedly...
+        uy2 = self.uy * self.uy
+        u2 = ux2 + uy2
+        omu215 = 1 - 1.5 * u2  # "one minus u2 times 1.5"
+        uxuy = self.ux * self.uy
+        self.n0 = (1 - self.omega) * self.n0 + self.omega * self.four9ths * self.rho * omu215
+        self.nN = (1 - self.omega) * self.nN + self.omega * self.one9th * self.rho * (omu215 + 3 * self.uy + 4.5 * uy2)
+        self.nS = (1 - self.omega) * self.nS + self.omega * self.one9th * self.rho * (omu215 - 3 * self.uy + 4.5 * uy2)
+        self.nE = (1 - self.omega) * self.nE + self.omega * self.one9th * self.rho * (omu215 + 3 * self.ux + 4.5 * ux2)
+        self.nW = (1 - self.omega) * self.nW + self.omega * self.one9th * self.rho * (omu215 - 3 * self.ux + 4.5 * ux2)
+        self.nNE = (1 - self.omega) * self.nNE + self.omega * self.one36th * self.rho * (
+            omu215 + 3 * (self.ux + self.uy) + 4.5 * (u2 + 2 * uxuy)
+        )
+        self.nNW = (1 - self.omega) * self.nNW + self.omega * self.one36th * self.rho * (
+            omu215 + 3 * (-self.ux + self.uy) + 4.5 * (u2 - 2 * uxuy)
+        )
+        self.nSE = (1 - self.omega) * self.nSE + self.omega * self.one36th * self.rho * (
+            omu215 + 3 * (self.ux - self.uy) + 4.5 * (u2 - 2 * uxuy)
+        )
+        self.nSW = (1 - self.omega) * self.nSW + self.omega * self.one36th * self.rho * (
+            omu215 + 3 * (-self.ux - self.uy) + 4.5 * (u2 + 2 * uxuy)
+        )
+        # Force steady rightward flow at ends (no need to set 0, N, and S components):
+        self.nE[:, 0] = self.one9th * (1 + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nW[:, 0] = self.one9th * (1 - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nNE[:, 0] = self.one36th * (1 + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nSE[:, 0] = self.one36th * (1 + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nNW[:, 0] = self.one36th * (1 - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
+        self.nSW[:, 0] = self.one36th * (1 - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
 
-
-# Move all particles by one step along their directions of motion (pbc):
-def stream():
-    global nN, nS, nE, nW, nNE, nNW, nSE, nSW
-    nN = np.roll(nN, 1, axis=0)  # axis 0 is north-south; + direction is north
-    nNE = np.roll(nNE, 1, axis=0)
-    nNW = np.roll(nNW, 1, axis=0)
-    nS = np.roll(nS, -1, axis=0)
-    nSE = np.roll(nSE, -1, axis=0)
-    nSW = np.roll(nSW, -1, axis=0)
-    nE = np.roll(nE, 1, axis=1)  # axis 1 is east-west; + direction is east
-    nNE = np.roll(nNE, 1, axis=1)
-    nSE = np.roll(nSE, 1, axis=1)
-    nW = np.roll(nW, -1, axis=1)
-    nNW = np.roll(nNW, -1, axis=1)
-    nSW = np.roll(nSW, -1, axis=1)
-    # Use tricky boolean arrays to handle barrier collisions (bounce-back):
-    nN[barrierN] = nS[barrier]
-    nS[barrierS] = nN[barrier]
-    nE[barrierE] = nW[barrier]
-    nW[barrierW] = nE[barrier]
-    nNE[barrierNE] = nSW[barrier]
-    nNW[barrierNW] = nSE[barrier]
-    nSE[barrierSE] = nNW[barrier]
-    nSW[barrierSW] = nNE[barrier]
-
-
-# Collide particles within each cell to redistribute velocities (could be optimized a little more):
-def collide():
-    global rho, ux, uy, n0, nN, nS, nE, nW, nNE, nNW, nSE, nSW
-    rho = n0 + nN + nS + nE + nW + nNE + nSE + nNW + nSW
-    ux = (nE + nNE + nSE - nW - nNW - nSW) / rho
-    uy = (nN + nNE + nNW - nS - nSE - nSW) / rho
-    ux2 = ux * ux  # pre-compute terms used repeatedly...
-    uy2 = uy * uy
-    u2 = ux2 + uy2
-    omu215 = 1 - 1.5 * u2  # "one minus u2 times 1.5"
-    uxuy = ux * uy
-    n0 = (1 - omega) * n0 + omega * four9ths * rho * omu215
-    nN = (1 - omega) * nN + omega * one9th * rho * (omu215 + 3 * uy + 4.5 * uy2)
-    nS = (1 - omega) * nS + omega * one9th * rho * (omu215 - 3 * uy + 4.5 * uy2)
-    nE = (1 - omega) * nE + omega * one9th * rho * (omu215 + 3 * ux + 4.5 * ux2)
-    nW = (1 - omega) * nW + omega * one9th * rho * (omu215 - 3 * ux + 4.5 * ux2)
-    nNE = (1 - omega) * nNE + omega * one36th * rho * (
-        omu215 + 3 * (ux + uy) + 4.5 * (u2 + 2 * uxuy)
-    )
-    nNW = (1 - omega) * nNW + omega * one36th * rho * (
-        omu215 + 3 * (-ux + uy) + 4.5 * (u2 - 2 * uxuy)
-    )
-    nSE = (1 - omega) * nSE + omega * one36th * rho * (
-        omu215 + 3 * (ux - uy) + 4.5 * (u2 - 2 * uxuy)
-    )
-    nSW = (1 - omega) * nSW + omega * one36th * rho * (
-        omu215 + 3 * (-ux - uy) + 4.5 * (u2 + 2 * uxuy)
-    )
-    # Force steady rightward flow at ends (no need to set 0, N, and S components):
-    nE[:, 0] = one9th * (1 + 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-    nW[:, 0] = one9th * (1 - 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-    nNE[:, 0] = one36th * (1 + 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-    nSE[:, 0] = one36th * (1 + 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-    nNW[:, 0] = one36th * (1 - 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-    nSW[:, 0] = one36th * (1 - 3 * u0 + 4.5 * u0**2 - 1.5 * u0**2)
+    # Compute curl of the macroscopic velocity field:
+    def curl(self, ux, uy):
+        return (
+            np.roll(uy, -1, axis=1)
+            - np.roll(uy, 1, axis=1)
+            - np.roll(ux, -1, axis=0)
+            + np.roll(ux, 1, axis=0)
+        )
 
 
-# Compute curl of the macroscopic velocity field:
-def curl(ux, uy):
-    return (
-        np.roll(uy, -1, axis=1)
-        - np.roll(uy, 1, axis=1)
-        - np.roll(ux, -1, axis=0)
-        + np.roll(ux, 1, axis=0)
-    )
-
+# Create simulator instance
+simulator = LatticeBoltzmannSimulator()
 
 # Here comes the graphics and animation...
-theFig = matplotlib.pyplot.figure(figsize=(8, 3))
-fluidImage = matplotlib.pyplot.imshow(
-    curl(ux, uy),
+theFig = plt.figure(figsize=(8, 3))
+fluidImage = plt.imshow(
+    simulator.curl(simulator.ux, simulator.uy),
     origin="lower",
-    norm=matplotlib.pyplot.Normalize(-0.1, 0.1),
-    cmap=matplotlib.pyplot.get_cmap("jet"),
+    norm=plt.Normalize(-0.1, 0.1),
+    cmap=plt.get_cmap("jet"),
     interpolation="none",
 )  # See http://www.loria.fr/~rougier/teaching/matplotlib/#colormaps for other cmap options
-bImageArray = np.zeros((height, width, 4), np.uint8)  # an RGBA image
-bImageArray[barrier, 3] = 255  # set alpha=255 only at barrier sites
-barrierImage = matplotlib.pyplot.imshow(
+bImageArray = np.zeros((simulator.height, simulator.width, 4), np.uint8)  # an RGBA image
+bImageArray[simulator.barrier, 3] = 255  # set alpha=255 only at barrier sites
+barrierImage = plt.imshow(
     bImageArray, origin="lower", interpolation="none"
 )
 
@@ -173,19 +173,19 @@ startTime = time.time()  # frameList = open('frameList.txt','w')		# file contain
 
 def nextFrame(arg):  # (arg is the frame number, which we don't need)
     global startTime
-    if performanceData and (arg % 100 == 0) and (arg > 0):
+    if simulator.performanceData and (arg % 100 == 0) and (arg > 0):
         endTime = time.time()
         print("%1.1f" % (100 / (endTime - startTime)), "frames per second")
         startTime = endTime
     # frameName = "frame%04d.png" % arg
-    # matplotlib.pyplot.savefig(frameName)
+    # plt.savefig(frameName)
     # frameList.write(frameName + '\n')
     for step in range(20):  # adjust number of steps for smooth animation
-        stream()
-        collide()
-    fluidImage.set_array(curl(ux, uy))
+        simulator.stream()
+        simulator.collide()
+    fluidImage.set_array(simulator.curl(simulator.ux, simulator.uy))
     return (fluidImage, barrierImage)  # return the figure elements to redraw
 
 
 animate = matplotlib.animation.FuncAnimation(theFig, nextFrame, interval=1, blit=True)
-matplotlib.pyplot.show()
+plt.show()
