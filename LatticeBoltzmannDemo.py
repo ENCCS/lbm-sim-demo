@@ -34,6 +34,7 @@ import matplotlib
 matplotlib.use("QtAgg")
 import matplotlib.animation
 import matplotlib.pyplot as plt
+from matplotlib.widgets import RectangleSelector
 import numpy as np
 
 
@@ -49,46 +50,105 @@ class LatticeBoltzmannSimulator:
         self.one9th = 1.0 / 9.0
         self.one36th = 1.0 / 36.0
         self.performanceData = False  # set to True if performance data is desired
-        
+
         # Initialize all the arrays to steady rightward flow:
         self.n0 = self.four9ths * (
             np.ones((self.height, self.width)) - 1.5 * self.u0**2
         )  # particle densities along 9 directions
         self.nN = self.one9th * (np.ones((self.height, self.width)) - 1.5 * self.u0**2)
         self.nS = self.one9th * (np.ones((self.height, self.width)) - 1.5 * self.u0**2)
-        self.nE = self.one9th * (np.ones((self.height, self.width)) + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nW = self.one9th * (np.ones((self.height, self.width)) - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nNE = self.one36th * (np.ones((self.height, self.width)) + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nSE = self.one36th * (np.ones((self.height, self.width)) + 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nNW = self.one36th * (np.ones((self.height, self.width)) - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.nSW = self.one36th * (np.ones((self.height, self.width)) - 3 * self.u0 + 4.5 * self.u0**2 - 1.5 * self.u0**2)
-        self.rho = self.n0 + self.nN + self.nS + self.nE + self.nW + self.nNE + self.nSE + self.nNW + self.nSW  # macroscopic density
-        self.ux = (self.nE + self.nNE + self.nSE - self.nW - self.nNW - self.nSW) / self.rho  # macroscopic x velocity
-        self.uy = (self.nN + self.nNE + self.nNW - self.nS - self.nSE - self.nSW) / self.rho  # macroscopic y velocity
+        self.nE = self.one9th * (
+            np.ones((self.height, self.width))
+            + 3 * self.u0
+            + 4.5 * self.u0**2
+            - 1.5 * self.u0**2
+        )
+        self.nW = self.one9th * (
+            np.ones((self.height, self.width))
+            - 3 * self.u0
+            + 4.5 * self.u0**2
+            - 1.5 * self.u0**2
+        )
+        self.nNE = self.one36th * (
+            np.ones((self.height, self.width))
+            + 3 * self.u0
+            + 4.5 * self.u0**2
+            - 1.5 * self.u0**2
+        )
+        self.nSE = self.one36th * (
+            np.ones((self.height, self.width))
+            + 3 * self.u0
+            + 4.5 * self.u0**2
+            - 1.5 * self.u0**2
+        )
+        self.nNW = self.one36th * (
+            np.ones((self.height, self.width))
+            - 3 * self.u0
+            + 4.5 * self.u0**2
+            - 1.5 * self.u0**2
+        )
+        self.nSW = self.one36th * (
+            np.ones((self.height, self.width))
+            - 3 * self.u0
+            + 4.5 * self.u0**2
+            - 1.5 * self.u0**2
+        )
+        self.rho = (
+            self.n0
+            + self.nN
+            + self.nS
+            + self.nE
+            + self.nW
+            + self.nNE
+            + self.nSE
+            + self.nNW
+            + self.nSW
+        )  # macroscopic density
+        self.ux = (
+            self.nE + self.nNE + self.nSE - self.nW - self.nNW - self.nSW
+        ) / self.rho  # macroscopic x velocity
+        self.uy = (
+            self.nN + self.nNE + self.nNW - self.nS - self.nSE - self.nSW
+        ) / self.rho  # macroscopic y velocity
 
         # Initialize barriers:
-        self.barrier = np.zeros((self.height, self.width), bool)  # True wherever there's a barrier
-        self.barrier[(self.height // 2) - 8 : (self.height // 2) + 8, self.height // 2] = (
-            True  # simple linear barrier
-        )
+        self.barrier = np.zeros(
+            (self.height, self.width), bool
+        )  # True wherever there's a barrier
+        y_center = self.height // 2
+        y_start = y_center - 8
+        y_end = y_center + 8
+        x_start = y_center
+        x_end = y_center + 1
+
+        self.init_barrier(y_start, y_end, x_start, x_end)
+
+    def init_barrier(self, y_start, y_end, x_start, x_end):
+        self.barrier[y_start:y_end, x_start:x_end] = True  # simple linear barrier
         self.barrierN = np.roll(self.barrier, 1, axis=0)  # sites just north of barriers
-        self.barrierS = np.roll(self.barrier, -1, axis=0)  # sites just south of barriers
+        self.barrierS = np.roll(
+            self.barrier, -1, axis=0
+        )  # sites just south of barriers
         self.barrierE = np.roll(self.barrier, 1, axis=1)  # etc.
         self.barrierW = np.roll(self.barrier, -1, axis=1)
         self.barrierNE = np.roll(self.barrierN, 1, axis=1)
         self.barrierNW = np.roll(self.barrierN, -1, axis=1)
         self.barrierSE = np.roll(self.barrierS, 1, axis=1)
         self.barrierSW = np.roll(self.barrierS, -1, axis=1)
-    
+
     # Move all particles by one step along their directions of motion (pbc):
     def stream(self):
-        self.nN = np.roll(self.nN, 1, axis=0)  # axis 0 is north-south; + direction is north
+        self.nN = np.roll(
+            self.nN, 1, axis=0
+        )  # axis 0 is north-south; + direction is north
         self.nNE = np.roll(self.nNE, 1, axis=0)
         self.nNW = np.roll(self.nNW, 1, axis=0)
         self.nS = np.roll(self.nS, -1, axis=0)
         self.nSE = np.roll(self.nSE, -1, axis=0)
         self.nSW = np.roll(self.nSW, -1, axis=0)
-        self.nE = np.roll(self.nE, 1, axis=1)  # axis 1 is east-west; + direction is east
+        self.nE = np.roll(
+            self.nE, 1, axis=1
+        )  # axis 1 is east-west; + direction is east
         self.nNE = np.roll(self.nNE, 1, axis=1)
         self.nSE = np.roll(self.nSE, 1, axis=1)
         self.nW = np.roll(self.nW, -1, axis=1)
@@ -106,42 +166,76 @@ class LatticeBoltzmannSimulator:
 
     # Collide particles within each cell to redistribute velocities (could be optimized a little more):
     def collide(self):
-        self.rho = self.n0 + self.nN + self.nS + self.nE + self.nW + self.nNE + self.nSE + self.nNW + self.nSW
-        self.ux = (self.nE + self.nNE + self.nSE - self.nW - self.nNW - self.nSW) / self.rho
-        self.uy = (self.nN + self.nNE + self.nNW - self.nS - self.nSE - self.nSW) / self.rho
+        self.rho = (
+            self.n0
+            + self.nN
+            + self.nS
+            + self.nE
+            + self.nW
+            + self.nNE
+            + self.nSE
+            + self.nNW
+            + self.nSW
+        )
+        self.ux = (
+            self.nE + self.nNE + self.nSE - self.nW - self.nNW - self.nSW
+        ) / self.rho
+        self.uy = (
+            self.nN + self.nNE + self.nNW - self.nS - self.nSE - self.nSW
+        ) / self.rho
         ux2 = self.ux * self.ux  # pre-compute terms used repeatedly...
         uy2 = self.uy * self.uy
         u2 = ux2 + uy2
         omu215 = 1 - 1.5 * u2  # "one minus u2 times 1.5"
         uxuy = self.ux * self.uy
-        self.n0 = (1 - self.omega) * self.n0 + self.omega * self.four9ths * self.rho * omu215
-        self.nN = (1 - self.omega) * self.nN + self.omega * self.one9th * self.rho * (omu215 + 3 * self.uy + 4.5 * uy2)
-        self.nS = (1 - self.omega) * self.nS + self.omega * self.one9th * self.rho * (omu215 - 3 * self.uy + 4.5 * uy2)
-        self.nE = (1 - self.omega) * self.nE + self.omega * self.one9th * self.rho * (omu215 + 3 * self.ux + 4.5 * ux2)
-        self.nW = (1 - self.omega) * self.nW + self.omega * self.one9th * self.rho * (omu215 - 3 * self.ux + 4.5 * ux2)
-        self.nNE = (1 - self.omega) * self.nNE + self.omega * self.one36th * self.rho * (
+        self.n0 = (
+            1 - self.omega
+        ) * self.n0 + self.omega * self.four9ths * self.rho * omu215
+        self.nN = (1 - self.omega) * self.nN + self.omega * self.one9th * self.rho * (
+            omu215 + 3 * self.uy + 4.5 * uy2
+        )
+        self.nS = (1 - self.omega) * self.nS + self.omega * self.one9th * self.rho * (
+            omu215 - 3 * self.uy + 4.5 * uy2
+        )
+        self.nE = (1 - self.omega) * self.nE + self.omega * self.one9th * self.rho * (
+            omu215 + 3 * self.ux + 4.5 * ux2
+        )
+        self.nW = (1 - self.omega) * self.nW + self.omega * self.one9th * self.rho * (
+            omu215 - 3 * self.ux + 4.5 * ux2
+        )
+        self.nNE = (
+            1 - self.omega
+        ) * self.nNE + self.omega * self.one36th * self.rho * (
             omu215 + 3 * (self.ux + self.uy) + 4.5 * (u2 + 2 * uxuy)
         )
-        self.nNW = (1 - self.omega) * self.nNW + self.omega * self.one36th * self.rho * (
+        self.nNW = (
+            1 - self.omega
+        ) * self.nNW + self.omega * self.one36th * self.rho * (
             omu215 + 3 * (-self.ux + self.uy) + 4.5 * (u2 - 2 * uxuy)
         )
-        self.nSE = (1 - self.omega) * self.nSE + self.omega * self.one36th * self.rho * (
+        self.nSE = (
+            1 - self.omega
+        ) * self.nSE + self.omega * self.one36th * self.rho * (
             omu215 + 3 * (self.ux - self.uy) + 4.5 * (u2 - 2 * uxuy)
         )
-        self.nSW = (1 - self.omega) * self.nSW + self.omega * self.one36th * self.rho * (
+        self.nSW = (
+            1 - self.omega
+        ) * self.nSW + self.omega * self.one36th * self.rho * (
             omu215 + 3 * (-self.ux - self.uy) + 4.5 * (u2 + 2 * uxuy)
         )
+
         # Force steady rightward flow at ends (no need to set 0, N, and S components):
         def set_inlet_velocity(arr, fraction, direction_factor, u0):
-            arr[:, 0] = fraction * (1 + direction_factor * u0 + 4.5 * u0**2 - 1.5 * u0**2)
-            
+            arr[:, 0] = fraction * (
+                1 + direction_factor * u0 + 4.5 * u0**2 - 1.5 * u0**2
+            )
+
         set_inlet_velocity(self.nE, self.one9th, 3, self.u0)
         set_inlet_velocity(self.nW, self.one9th, -3, self.u0)
         set_inlet_velocity(self.nNE, self.one36th, 3, self.u0)
         set_inlet_velocity(self.nSE, self.one36th, 3, self.u0)
         set_inlet_velocity(self.nNW, self.one36th, -3, self.u0)
         set_inlet_velocity(self.nSW, self.one36th, -3, self.u0)
-
 
     # Compute curl of the macroscopic velocity field:
     def curl(self, ux, uy):
@@ -162,14 +256,14 @@ fluidImage = plt.imshow(
     simulator.curl(simulator.ux, simulator.uy),
     origin="lower",
     norm=plt.Normalize(-0.1, 0.1),
-    cmap=plt.get_cmap("jet"),
+    cmap=plt.get_cmap("coolwarm"),
     interpolation="none",
 )  # See http://www.loria.fr/~rougier/teaching/matplotlib/#colormaps for other cmap options
-bImageArray = np.zeros((simulator.height, simulator.width, 4), np.uint8)  # an RGBA image
+bImageArray = np.zeros(
+    (simulator.height, simulator.width, 4), np.uint8
+)  # an RGBA image
 bImageArray[simulator.barrier, 3] = 255  # set alpha=255 only at barrier sites
-barrierImage = plt.imshow(
-    bImageArray, origin="lower", interpolation="none"
-)
+barrierImage = plt.imshow(bImageArray, origin="lower", interpolation="none")
 
 # Function called for each successive animation frame:
 startTime = time.time()  # frameList = open('frameList.txt','w')		# file containing list of images (to make movie)
@@ -190,6 +284,54 @@ def nextFrame(arg):  # (arg is the frame number, which we don't need)
     fluidImage.set_array(simulator.curl(simulator.ux, simulator.uy))
     return (fluidImage, barrierImage)  # return the figure elements to redraw
 
+
+def rect_onselect(eclick, erelease):
+    x1, y1 = eclick.xdata, eclick.ydata
+    x2, y2 = erelease.xdata, erelease.ydata
+
+    # Convert to integer coordinates and ensure they're within bounds
+    x_start = int(min(x1, x2) + 0.5)
+    x_end = int(max(x1, x2) + 0.5)
+    y_start = int(min(y1, y2) + 0.5)
+    y_end = int(max(y1, y2) + 0.5)
+
+    # Ensure coordinates are within valid range
+    x_start = max(0, min(x_start, simulator.width - 1))
+    x_end = max(0, min(x_end, simulator.width - 1))
+    y_start = max(0, min(y_start, simulator.height - 1))
+    y_end = max(0, min(y_end, simulator.height - 1))
+
+    # Update barrier array
+    simulator.init_barrier(y_start, y_end, x_start, x_end)
+
+    # Update visualization
+    mask = simulator.barrier
+    bImageArray[..., 3] = 255 * mask
+    barrierImage.set_array(bImageArray)
+    plt.draw()
+
+
+# Set up rectangle selector
+rect_selector = RectangleSelector(
+    theFig.axes[0],
+    rect_onselect,
+    useblit=False,
+    props=dict(edgecolor="red", linestyle="--", linewidth=1, fill=False),
+    interactive=True,
+)
+
+def clear_barrier(_event):
+    simulator.barrier[:, :] = False
+    # simulator.init_barrier(0, 0, 0, 0)  # Reinitialize barrier arrays
+    bImageArray[..., 3] = 0  # Set alpha to 0 everywhere
+    barrierImage.set_array(bImageArray)
+    plt.draw()
+
+# Set up clear barrier button
+from matplotlib.widgets import Button
+
+clear_barrier_button = Button(plt.axes([0.85, 0.01, 0.1, 0.05]), "Clear Barrier")
+clear_barrier_button.on_clicked(clear_barrier)
 
 animate = matplotlib.animation.FuncAnimation(theFig, nextFrame, interval=1, blit=True)
 plt.show()
