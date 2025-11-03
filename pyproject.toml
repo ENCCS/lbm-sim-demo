@@ -6,14 +6,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = [
-    "matplotlib>=3.10.7",
-    "numpy>=2.3.4",
-    "pyqt6>=6.10.0",
-]
+dependencies = ["matplotlib>=3.10.7", "numpy>=2.3.4", "pyqt6>=6.10.0"]
 
 [tool.ruff]
-line-length = 120
+line-length = 125
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
