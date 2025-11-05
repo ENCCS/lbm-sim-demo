@@ -11,3 +11,4 @@ wheels/
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+uv.lock
