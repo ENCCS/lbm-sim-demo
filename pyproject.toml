@@ -3,10 +3,16 @@ name = "lbm-sim-demo"
 version = "0.1.0"
 description = "2D Lattice Boltzmann Method Simulator"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.14"
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = ["matplotlib>=3.10.7", "numpy>=2.3.4", "pyqt6>=6.10.0"]
+dependencies = ["matplotlib>=3.10.7", "numpy>=2.3.4"]
+
+[dependency-groups]
+gpu = [
+    "cupy-cuda12x>=13.6.0",
+]
+qt = ["pyqt6>=6.10.0"]
 
 [tool.ruff]
 line-length = 125

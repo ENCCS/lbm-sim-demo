@@ -10,7 +10,15 @@ import time
 import matplotlib
 import matplotlib.animation
 import matplotlib.pyplot as plt
-import numpy as np
+
+try:
+    import cupy as np
+except ModuleNotFoundError:
+    GPU = False
+    import numpy as np
+else:
+    GPU = True
+
 from matplotlib.widgets import Button, RectangleSelector
 
 
@@ -131,23 +139,29 @@ class LatticeBoltzmannSimulator:
 
     # Compute curl of the macroscopic velocity field:
     def curl(self, ux, uy):
-        return np.roll(uy, -1, axis=1) - np.roll(uy, 1, axis=1) - np.roll(ux, -1, axis=0) + np.roll(ux, 1, axis=0)
+        res = np.roll(uy, -1, axis=1) - np.roll(uy, 1, axis=1) - np.roll(ux, -1, axis=0) + np.roll(ux, 1, axis=0)
+        if GPU:
+            return res.get()  # To numpy
+        else:
+            return res
 
 
 # Create simulator instance
 simulator = LatticeBoltzmannSimulator()
 
 # Here comes the graphics and animation...
-theFig = plt.figure(figsize=(8, 3))
+fig = plt.figure(figsize=(8, 3))
 fluidImage = plt.imshow(
     simulator.curl(simulator.ux, simulator.uy),
     origin="lower",
     norm=plt.Normalize(-0.1, 0.1),
     cmap=plt.get_cmap("coolwarm"),
     interpolation="none",
-)  # See http://www.loria.fr/~rougier/teaching/matplotlib/#colormaps for other cmap options
+)
 bImageArray = np.zeros((simulator.height, simulator.width, 4), np.uint8)  # an RGBA image
 bImageArray[simulator.barrier, 3] = 255  # set alpha=255 only at barrier sites
+if GPU:
+    bImageArray = bImageArray.get()
 barrierImage = plt.imshow(bImageArray, origin="lower", interpolation="none")
 
 # Function called for each successive animation frame:
@@ -191,6 +205,9 @@ def rect_onselect(eclick, erelease):
 
     # Update visualization
     mask = simulator.barrier
+    if GPU:
+        mask = mask.get()
+
     bImageArray[..., 3] = 255 * mask
     barrierImage.set_array(bImageArray)
     plt.draw()
@@ -198,7 +215,7 @@ def rect_onselect(eclick, erelease):
 
 # Set up rectangle selector
 rect_selector = RectangleSelector(
-    theFig.axes[0],
+    fig.axes[0],
     rect_onselect,
     useblit=False,
     props=dict(edgecolor="red", linestyle="--", linewidth=1, fill=False),
@@ -217,5 +234,5 @@ def clear_barrier(_event):
 clear_barrier_button = Button(plt.axes([0.85, 0.01, 0.1, 0.05]), "Clear Barrier")
 clear_barrier_button.on_clicked(clear_barrier)
 
-animate = matplotlib.animation.FuncAnimation(theFig, nextFrame, interval=1, blit=True)
+animate = matplotlib.animation.FuncAnimation(fig, nextFrame, interval=1, blit=True)
 plt.show()
