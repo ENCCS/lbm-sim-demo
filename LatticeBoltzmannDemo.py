@@ -19,7 +19,8 @@ except ModuleNotFoundError:
 else:
     GPU = True
 
-from matplotlib.widgets import Button, RectangleSelector
+from matplotlib.gridspec import GridSpec
+from matplotlib.widgets import Button, RadioButtons, RectangleSelector
 
 
 class LatticeBoltzmannSimulator:
@@ -55,7 +56,17 @@ class LatticeBoltzmannSimulator:
 
         # Initialize barriers:
         self.barrier = np.zeros((self.height, self.width), bool)  # True wherever there's a barrier
-        self.init_circular_barrier(center_x=self.width // 8, center_y=self.height // 2, radius=10)
+        self.barrier_type = "circle"  # Default barrier type
+        if self.barrier_type == "circle":
+            self.init_circular_barrier(center_x=self.width // 2, center_y=self.height // 2, radius=10)
+        else:
+            y_center = self.height // 2
+            y_start = y_center - 8
+            y_end = y_center + 8
+            x_start = y_center
+            x_end = y_center + 1
+
+            self.init_barrier(y_start, y_end, x_start, x_end)
 
     def init_circular_barrier(self, center_x, center_y, radius):
         """Initialize a circular barrier in the center of the domain"""
@@ -64,7 +75,7 @@ class LatticeBoltzmannSimulator:
 
         # Create circular barrier using distance from center
         distance_from_center = np.sqrt((x_coords - center_x) ** 2 + (y_coords - center_y) ** 2)
-        self.barrier = distance_from_center <= radius
+        self.barrier[distance_from_center <= radius] = True
         self._update_barrier_neighbor_arrays()
 
     def init_barrier(self, y_start, y_end, x_start, x_end):
@@ -159,7 +170,13 @@ simulator = LatticeBoltzmannSimulator()
 
 # Here comes the graphics and animation...
 fig = plt.figure(figsize=(8, 3))
-fluidImage = plt.imshow(
+
+gs = GridSpec(3, 2, width_ratios=[1, 2], height_ratios=[4, 2, 1])
+ax0_radio = fig.add_subplot(gs[1, 0])
+ax0_button = fig.add_subplot(gs[2, 0])
+ax1 = fig.add_subplot(gs[:, 1])  # Combine the rows of the second column
+
+fluidImage = ax1.imshow(
     simulator.curl(simulator.ux, simulator.uy),
     origin="lower",
     norm=plt.Normalize(-0.1, 0.1),
@@ -170,7 +187,7 @@ bImageArray = np.zeros((simulator.height, simulator.width, 4), np.uint8)  # an R
 bImageArray[simulator.barrier, 3] = 255  # set alpha=255 only at barrier sites
 if GPU:
     bImageArray = bImageArray.get()
-barrierImage = plt.imshow(bImageArray, origin="lower", interpolation="none")
+barrierImage = ax1.imshow(bImageArray, origin="lower", interpolation="none")
 
 # Function called for each successive animation frame:
 startTime = time.time()  # frameList = open('frameList.txt','w')		# file containing list of images (to make movie)
@@ -209,7 +226,13 @@ def rect_onselect(eclick, erelease):
     y_end = max(0, min(y_end, simulator.height - 1))
 
     # Update barrier array
-    simulator.init_barrier(y_start, y_end, x_start, x_end)
+    if simulator.barrier_type == "circle":
+        xc = (x_start + x_end) // 2
+        yc = (y_start + y_end) // 2
+        radius = min(x_end - xc, y_end - yc)
+        simulator.init_circular_barrier(xc, yc, radius)
+    else:
+        simulator.init_barrier(y_start, y_end, x_start, x_end)
 
     # Update visualization
     mask = simulator.barrier
@@ -223,7 +246,7 @@ def rect_onselect(eclick, erelease):
 
 # Set up rectangle selector
 rect_selector = RectangleSelector(
-    fig.axes[0],
+    ax1,
     rect_onselect,
     useblit=False,
     props=dict(edgecolor="red", linestyle="--", linewidth=1, fill=False),
@@ -233,14 +256,29 @@ rect_selector = RectangleSelector(
 
 def clear_barrier(_event):
     simulator.barrier[:, :] = False
+    simulator._update_barrier_neighbor_arrays()
     # simulator.init_barrier(0, 0, 0, 0)  # Reinitialize barrier arrays
     bImageArray[..., 3] = 0  # Set alpha to 0 everywhere
     barrierImage.set_array(bImageArray)
     plt.draw()
 
 
-clear_barrier_button = Button(plt.axes([0.85, 0.01, 0.1, 0.05]), "Clear Barrier")
+clear_barrier_button = Button(ax0_button, "Clear Barrier")
 clear_barrier_button.on_clicked(clear_barrier)
 
+
+def select_barrier_type(label):
+    """Callback function for radio button selection"""
+    if label == "Circle":
+        simulator.barrier_type = "circle"
+    else:  # Rectangle
+        simulator.barrier_type = "rectangle"
+
+
+# Add radio buttons for barrier selection
+radio = RadioButtons(ax0_radio, ("Circle", "Rectangle"))
+radio.on_clicked(select_barrier_type)
+
 animate = matplotlib.animation.FuncAnimation(fig, nextFrame, interval=1, blit=True)
+plt.tight_layout()
 plt.show()
