@@ -55,16 +55,24 @@ class LatticeBoltzmannSimulator:
 
         # Initialize barriers:
         self.barrier = np.zeros((self.height, self.width), bool)  # True wherever there's a barrier
-        y_center = self.height // 2
-        y_start = y_center - 8
-        y_end = y_center + 8
-        x_start = y_center
-        x_end = y_center + 1
+        self.init_circular_barrier(center_x=self.width // 8, center_y=self.height // 2, radius=10)
 
-        self.init_barrier(y_start, y_end, x_start, x_end)
+    def init_circular_barrier(self, center_x, center_y, radius):
+        """Initialize a circular barrier in the center of the domain"""
+        # Create coordinate grids
+        y_coords, x_coords = np.ogrid[: self.height, : self.width]
+
+        # Create circular barrier using distance from center
+        distance_from_center = np.sqrt((x_coords - center_x) ** 2 + (y_coords - center_y) ** 2)
+        self.barrier = distance_from_center <= radius
+        self._update_barrier_neighbor_arrays()
 
     def init_barrier(self, y_start, y_end, x_start, x_end):
+        """Initialize a rectangular barrier (kept for compatibility)"""
         self.barrier[y_start:y_end, x_start:x_end] = True  # simple linear barrier
+        self._update_barrier_neighbor_arrays()
+
+    def _update_barrier_neighbor_arrays(self):
         self.barrierN = np.roll(self.barrier, 1, axis=0)  # sites just north of barriers
         self.barrierS = np.roll(self.barrier, -1, axis=0)  # sites just south of barriers
         self.barrierE = np.roll(self.barrier, 1, axis=1)  # etc.
