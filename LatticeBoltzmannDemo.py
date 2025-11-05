@@ -280,6 +280,7 @@ def select_barrier_type(label):
 
 
 # Add radio buttons for barrier selection
+ax0_radio.set_title("Barrier type")
 radio = RadioButtons(ax0_radio, ("Circle", "Rectangle"))
 radio.on_clicked(select_barrier_type)
 
