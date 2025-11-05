@@ -1,8 +1,12 @@
 # 2D LBM simulator demo
 
-To run:
+To run on CPU:
 
     uv run LatticeBoltzmannDemo.py
+
+and to run with Cupy and GPU support:
+
+    uv run --group gpu LatticeBoltzmannDemo.py
 
 ## Credits
 
