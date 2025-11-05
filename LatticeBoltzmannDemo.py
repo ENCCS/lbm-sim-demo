@@ -170,11 +170,15 @@ simulator = LatticeBoltzmannSimulator()
 
 # Here comes the graphics and animation...
 fig = plt.figure(figsize=(8, 3))
+fig.suptitle("2D LBM simulator demo")
 
-gs = GridSpec(3, 2, width_ratios=[1, 2], height_ratios=[4, 2, 1])
+gs = GridSpec(3, 2, width_ratios=[1, 4], height_ratios=[4, 2, 1])
 ax0_radio = fig.add_subplot(gs[1, 0])
 ax0_button = fig.add_subplot(gs[2, 0])
 ax1 = fig.add_subplot(gs[:, 1])  # Combine the rows of the second column
+
+fig.text(0.01, 0.8, "Click with mouse and draw")
+fig.text(0.01, 0.7, "to add new barriers.")
 
 fluidImage = ax1.imshow(
     simulator.curl(simulator.ux, simulator.uy),
