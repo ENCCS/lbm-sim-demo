@@ -2,6 +2,7 @@
 <h1>2D LBM simulator demo</h1>
 
 [Example of an interactive simulation adding barriers on-the-fly](https://github.com/user-attachments/assets/d2551d02-9c7b-4051-a7f6-c7fa551d5341)
+
 </div>
 
 To run on CPU:
@@ -40,6 +41,9 @@ For inspiration on possible future studies:
   - Source to source compilation (Transpiling) to another language that you are not familiar with (think Julia, Rust, Nim, Zig, Chapel etc.)
   - Parallelizing
 
-- Quantum Computing for Quantum LBM: - "Quantum algorithm for lattice Boltzmann (QALB) simulation of incompressible fluids with a nonlinear collision term",
-  Wael Itani, Katepalli R. Sreenivasan, Sauro Succi - [_Physics of Fluids_(2024)](https://doi.org/10.1063/5.0176569) - "Scaling Quantum Computing Research to a New Milestone", Apurva Tiwari et al. - [arXiv (2025)](https://doi.org/10.48550/arXiv.2504.10870), [Blog post from Ansys (2025)](https://www.ansys.com/blog/scaling-quantum-computing-research) - "Quantum lattice Boltzmann method for simulating nonlinear fluid dynamics",
-  Boyuan Wang, Zhaoyuan Meng, Yaomin Zhao, Yue Yang - [arXiv (2025)](https://doi.org/10.48550/arXiv.2502.16568)
+- Quantum Computing for Quantum LBM:
+  - "Quantum algorithm for lattice Boltzmann (QALB) simulation of incompressible fluids with a nonlinear collision term",
+    Wael Itani, Katepalli R. Sreenivasan, Sauro Succi - [_Physics of Fluids_(2024)](https://doi.org/10.1063/5.0176569)
+  - "Scaling Quantum Computing Research to a New Milestone", Apurva Tiwari et al. - [arXiv (2025)](https://doi.org/10.48550/arXiv.2504.10870), [Blog post from Ansys (2025)](https://www.ansys.com/blog/scaling-quantum-computing-research)
+  - "Quantum lattice Boltzmann method for simulating nonlinear fluid dynamics",
+    Boyuan Wang, Zhaoyuan Meng, Yaomin Zhao, Yue Yang - [arXiv (2025)](https://doi.org/10.48550/arXiv.2502.16568)
