@@ -11,9 +11,8 @@ and to run with Cupy and GPU support:
 
 ## Credits
 
-This is the Python version of https://physics.weber.edu/schroeder/fluids/ here:
-
-https://physics.weber.edu/schroeder/fluids/LatticeBoltzmannDemo.py.txt
+This based on the Python version of https://physics.weber.edu/schroeder/fluids/ found [here](https://physics.weber.edu/schroeder/fluids/LatticeBoltzmannDemo.py.txt)
+by Daniel V. Schroeder (Weber State University).
 
 ## Other prior work
 The "wind tunnel" entry/exit conditions are inspired by [Graham Pullan's code](https://web.archive.org/web/20160905093116/http://www.many-core.group.cam.ac.uk/projects/LBdemo.shtml). Additional inspiration from
