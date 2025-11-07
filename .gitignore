@@ -12,3 +12,7 @@ wheels/
 .pixi/*
 !.pixi/config.toml
 uv.lock
+
+
+# Added by cargo
+rust/target
