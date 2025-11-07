@@ -1,4 +1,8 @@
-# 2D LBM simulator demo
+<div align="center">
+<h1>2D LBM simulator demo</h1>
+
+[Example of an interactive simulation adding barriers on-the-fly](https://github.com/user-attachments/assets/d2551d02-9c7b-4051-a7f6-c7fa551d5341)
+</div>
 
 To run on CPU:
 
